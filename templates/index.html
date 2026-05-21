@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto New Listing Bot - Bybit Paper Trading</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 5px;
+            background: #4CAF50;
+            color: white;
+            font-size: 12px;
+        }
+
+        .status-warning {
+            background: #ff9800;
+        }
+
+        .status-error {
+            background: #f44336;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-card h3 {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .capital-info {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .capital-info h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .capital-stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .capital-item {
+            flex: 1;
+            text-align: center;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 10px;
+        }
+
+        .capital-label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .capital-value {
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .capital-bar {
+            margin-top: 15px;
+            background: #f5f5f5;
+            border-radius: 10px;
+            overflow: hidden;
+            height: 20px;
+        }
+
+        .capital-bar-fill {
+            height: 100%;
+            transition: width 0.3s;
+        }
+
+        .scanner-status {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .scanner-status h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .scanner-stats {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .scanner-item {
+            flex: 1;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+
+        .profit-positive {
+            color: #4CAF50;
+        }
+
+        .profit-negative {
+            color: #f44336;
+        }
+
+        .status-bought {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .status-rejected {
+            color: #f44336;
+        }
+
+        .status-pending {
+            color: #FF9800;
+        }
+
+        .tables-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .table-wrapper {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+
+        .table-wrapper h2 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .logs-wrapper {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .logs-wrapper h2 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .logs-container {
+            height: 300px;
+            overflow-y: auto;
+            background: #1e1e1e;
+            border-radius: 10px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .log-entry {
+            padding: 4px 8px;
+            margin: 2px 0;
+            border-radius: 4px;
+            color: #d4d4d4;
+        }
+
+        .log-INFO {
+            color: #4CAF50;
+        }
+
+        .log-WARNING {
+            color: #FF9800;
+        }
+
+        .log-ERROR {
+            color: #f44336;
+        }
+
+        .log-SUCCESS {
+            color: #2196F3;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: #f5f5f5;
+            font-weight: 600;
+            color: #666;
+        }
+
+        tr:hover {
+            background: #f9f9f9;
+        }
+
+        .test-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .test-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: opacity 0.3s;
+        }
+
+        .test-btn:hover {
+            opacity: 0.8;
+        }
+
+        .telegram-btn {
+            background: #0088cc;
+            color: white;
+        }
+
+        .simulate-btn {
+            background: #ff9800;
+            color: white;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4CAF50;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            animation: slideIn 0.3s ease-out;
+            z-index: 1000;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @media (max-width: 1400px) {
+            .tables-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .capital-stats {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Crypto New Listing Bot</h1>
+            <p>Bybit Paper Trading Mode | <span class="status" id="botStatus">🟢 Активний</span></p>
+            <p style="font-size: 12px; color: #666; margin-top: 10px;">Сканування нових лістингів кожні 60 секунд | Баланс: $100 (paper trading)</p>
+        </div>
+
+        <div class="test-buttons">
+            <button class="test-btn telegram-btn" onclick="testTelegram()">📱 Тест Telegram</button>
+            <button class="test-btn simulate-btn" onclick="simulateListing()">🧪 Симулювати лістинг</button>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>💰 Поточний баланс</h3>
+                <div class="value" id="balance">$0.00</div>
+            </div>
+            <div class="stat-card">
+                <h3>📊 Всього угод</h3>
+                <div class="value" id="totalTrades">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>✅ Win Rate</h3>
+                <div class="value" id="winRate">0%</div>
+            </div>
+            <div class="stat-card">
+                <h3>💵 Загальний прибуток</h3>
+                <div class="value" id="totalProfit">$0.00</div>
+            </div>
+        </div>
+
+        <div class="capital-info">
+            <h3>💰 Структура капіталу</h3>
+            <div class="capital-stats">
+                <div class="capital-item">
+                    <div class="capital-label">Вільний капітал</div>
+                    <div class="capital-value profit-positive" id="freeCapital">$0.00</div>
+                    <div style="font-size: 12px; color: #666;" id="freePercent">0%</div>
+                </div>
+                <div class="capital-item">
+                    <div class="capital-label">Заблоковано в угодах</div>
+                    <div class="capital-value" style="color: #FF9800;" id="blockedCapital">$0.00</div>
+                    <div style="font-size: 12px; color: #666;" id="blockedPercent">0%</div>
+                </div>
+                <div class="capital-item">
+                    <div class="capital-label">Загальний капітал</div>
+                    <div class="capital-value" style="color: #2196F3;" id="totalCapital">$0.00</div>
+                </div>
+            </div>
+            <div class="capital-bar">
+                <div class="capital-bar-fill" id="capitalBar" style="width: 100%; background: linear-gradient(90deg, #4CAF50 0%, #FF9800 0%);"></div>
+            </div>
+        </div>
+
+        <div class="scanner-status">
+            <h3>🔍 Статус сканера</h3>
+            <div class="scanner-stats">
+                <div class="scanner-item">
+                    <div>Останнє сканування</div>
+                    <div style="font-size: 16px; font-weight: bold;" id="lastScan">--:--:--</div>
+                </div>
+                <div class="scanner-item">
+                    <div>Всього пар на Bybit</div>
+                    <div style="font-size: 16px; font-weight: bold;" id="totalPairs">0</div>
+                </div>
+                <div class="scanner-item">
+                    <div>Знайдено нових</div>
+                    <div style="font-size: 16px; font-weight: bold; color: #ff9800;" id="newFound">0</div>
+                </div>
+                <div class="scanner-item">
+                    <div>Кількість сканувань</div>
+                    <div style="font-size: 16px; font-weight: bold;" id="scanCount">0</div>
+                </div>
+                <div class="scanner-item">
+                    <div>Помилка API</div>
+                    <div style="font-size: 14px; color: #f44336;" id="scannerError">-</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tables-container">
+            <div class="table-wrapper">
+                <h2>🟢 Активні угоди</h2>
+                <table id="activeTradesTable">
+                    <thead>
+                        <tr><th>Токен</th><th>Ціна</th><th>К-сть</th><th>TP</th><th>SL</th></tr>
+                    </thead>
+                    <tbody id="activeTradesBody">
+                        <tr><td colspan="5">Завантаження......</td></tr>
+                    </tbody>
+                 </table>
+            </div>
+
+            <div class="table-wrapper">
+                <h2>📋 Виявлені лістинги</h2>
+                <table id="detectedListingsTable">
+                    <thead>
+                        <tr><th>Токен</th><th>Ціна</th><th>Об'єм</th><th>Статус</th></tr>
+                    </thead>
+                    <tbody id="detectedListingsBody">
+                        <tr><td colspan="4">Завантаження......</td></tr>
+                    </tbody>
+                 </table>
+            </div>
+
+            <div class="table-wrapper">
+                <h2>📜 Історія угод</h2>
+                <table id="historyTable">
+                    <thead>
+                        <tr><th>Токен</th><th>Прибуток</th><th>Причина</th><th>Час</th></tr>
+                    </thead>
+                    <tbody id="historyBody">
+                        <tr><td colspan="4">Завантаження...</td></tr>
+                    </tbody>
+                 </table>
+            </div>
+        </div>
+
+        <div class="logs-wrapper">
+            <h2>📝 Системні логи</h2>
+            <div class="logs-container" id="logsContainer">
+                <div>Завантаження логів...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+
+        async function loadData() {
+            await Promise.all([
+                loadBalance(),
+                loadActiveTrades(),
+                loadDetectedListings(),
+                loadTradeHistory(),
+                loadStats(),
+                loadCapitalInfo(),
+                loadScannerStatus(),
+                loadLogs()
+            ]);
+        }
+
+        async function loadBalance() {
+            const response = await fetch('/api/balance');
+            const data = await response.json();
+            document.getElementById('balance').innerText = `$${data.balance.toFixed(2)}`;
+        }
+
+        async function loadActiveTrades() {
+            const response = await fetch('/api/active_trades');
+            const trades = await response.json();
+            const tbody = document.getElementById('activeTradesBody');
+
+            if (trades.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">Немає активних угод</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = trades.map(trade => `
+                <tr>
+                    <td>${trade.token}</td>
+                    <td>$${trade.buy_price.toFixed(6)}</td>
+                    <td>${trade.quantity.toFixed(4)}</td>
+                    <td>$${trade.takeprofit.toFixed(6)}</td>
+                    <td>$${trade.stoploss.toFixed(6)}</td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadDetectedListings() {
+            const response = await fetch('/api/detected_listings');
+            const listings = await response.json();
+            const tbody = document.getElementById('detectedListingsBody');
+
+            if (listings.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4">Немає виявлених лістингів</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = listings.map(listing => {
+                let statusClass = '';
+                let statusText = '';
+                switch(listing.status) {
+                    case 'bought':
+                        statusClass = 'status-bought';
+                        statusText = '✅ Куплено';
+                        break;
+                    case 'rejected':
+                        statusClass = 'status-rejected';
+                        statusText = `❌ Відхилено: ${listing.reject_reason || 'невідома причина'}`;
+                        break;
+                    default:
+                        statusClass = 'status-pending';
+                        statusText = '⏳ Очікує';
+                }
+                return `
+                    <tr>
+                        <td>${listing.symbol}</td>
+                        <td>$${listing.price.toFixed(6)}</td>
+                        <td>$${listing.volume.toFixed(0)}</td>
+                        <td class="${statusClass}">${statusText}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function loadTradeHistory() {
+            const response = await fetch('/api/trade_history');
+            const trades = await response.json();
+            const tbody = document.getElementById('historyBody');
+
+            if (trades.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4">Ще немає закритих угод</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = trades.map(trade => {
+                const profitClass = trade.profit_usdt >= 0 ? 'profit-positive' : 'profit-negative';
+                return `
+                    <tr>
+                        <td>${trade.symbol}</td>
+                        <td class="${profitClass}">${trade.profit_percent.toFixed(2)}% ($${trade.profit_usdt.toFixed(2)})</td>
+                        <td>${trade.reason}</td>
+                        <td>${new Date(trade.sell_time).toLocaleTimeString()}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function loadStats() {
+            const response = await fetch('/api/stats');
+            const stats = await response.json();
+            document.getElementById('totalTrades').innerText = stats.total_trades;
+            document.getElementById('winRate').innerText = `${stats.win_rate.toFixed(1)}%`;
+            const totalProfitEl = document.getElementById('totalProfit');
+            totalProfitEl.innerText = `$${stats.total_profit.toFixed(2)}`;
+            totalProfitEl.className = stats.total_profit >= 0 ? 'value profit-positive' : 'value';
+        }
+
+        async function loadCapitalInfo() {
+            const response = await fetch('/api/capital_info');
+            const data = await response.json();
+            document.getElementById('freeCapital').innerText = `$${data.free.toFixed(2)}`;
+            document.getElementById('blockedCapital').innerText = `$${data.blocked.toFixed(2)}`;
+            document.getElementById('totalCapital').innerText = `$${data.total.toFixed(2)}`;
+            document.getElementById('freePercent').innerText = `${data.free_percent.toFixed(1)}%`;
+            document.getElementById('blockedPercent').innerText = `${data.blocked_percent.toFixed(1)}%`;
+
+            const bar = document.getElementById('capitalBar');
+            bar.style.background = `linear-gradient(90deg, #4CAF50 ${data.free_percent}%, #FF9800 ${data.free_percent}%)`;
+        }
+
+        async function loadScannerStatus() {
+            const response = await fetch('/api/scanner_status');
+            const data = await response.json();
+            document.getElementById('lastScan').innerText = data.last_scan ? new Date(data.last_scan).toLocaleTimeString() : '--:--:--';
+            document.getElementById('totalPairs').innerText = data.total_pairs || 0;
+            document.getElementById('newFound').innerText = data.new_found || 0;
+            document.getElementById('scanCount').innerText = data.scan_count || 0;
+            document.getElementById('scannerError').innerText = data.error || '✓ OK';
+
+            const statusEl = document.getElementById('botStatus');
+            if (data.error) {
+                statusEl.innerText = '⚠️ Помилка';
+                statusEl.className = 'status status-error';
+            } else if (data.is_running) {
+                statusEl.innerText = '🟢 Активний';
+                statusEl.className = 'status';
+            } else {
+                statusEl.innerText = '🔴 Зупинено';
+                statusEl.className = 'status status-error';
+            }
+        }
+
+        async function loadLogs() {
+            const response = await fetch('/api/logs');
+            const logs = await response.json();
+            const container = document.getElementById('logsContainer');
+
+            if (logs.length === 0) {
+                container.innerHTML = '<div>Немає логів</div>';
+                return;
+            }
+
+            container.innerHTML = logs.map(log => `
+                <div class="log-entry log-${log.level}">
+                    [${new Date(log.timestamp).toLocaleTimeString()}] [${log.level}] ${log.message}
+                </div>
+            `).join('');
+
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function testTelegram() {
+            const response = await fetch('/api/test_telegram');
+            const data = await response.json();
+            showNotification(data.message);
+        }
+
+        async function simulateListing() {
+            const response = await fetch('/api/simulate_listing');
+            const data = await response.json();
+            showNotification('🧪 Симуляція нового лістингу запущена! Перевірте логи.');
+        }
+
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.innerText = message;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 5000);
+        }
+
+        socket.on('new_listing', (data) => {
+            showNotification(`🔔 Новий лістинг: ${data.symbol} @ ${data.price} USDT`);
+            loadData();
+        });
+
+        setInterval(loadData, 3000);
+        loadData();
+    </script>
+</body>
+</html>
